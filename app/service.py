@@ -353,6 +353,9 @@ def trades_payload() -> dict:
         "storage": {
             "persistent": not config.EPHEMERAL_STORAGE,
             "path": str(config.DATA_DIR),
+            "backend": journal.backend(),
+            "source_env": journal.dsn_source(),
+            "ignored_env": journal.ignored_env(),
         },
     }
 

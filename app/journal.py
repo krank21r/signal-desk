@@ -237,14 +237,42 @@ class PostgresStore:
 _STORES: dict[tuple[str, str], Store] = {}
 
 
+# Env vars a host might use for the database, in preference order. Prisma
+# Postgres exposes several at once, and only some speak the Postgres wire
+# protocol -- ``prisma+postgres://`` URLs are for Prisma Client, not libpq.
+CANDIDATES = ("DATABASE_URL_POOLED", "POSTGRES_URL", "DATABASE_URL")
+PG_SCHEMES = ("postgres://", "postgresql://")
+
+
+def _usable(value: Optional[str]) -> bool:
+    return bool(value) and value.startswith(PG_SCHEMES)
+
+
 def dsn() -> Optional[str]:
     """The Postgres URL, wherever the host decided to put it.
 
-    Neon's Vercel integration injects ``POSTGRES_URL``; Neon's own dashboard and
-    most other providers give ``DATABASE_URL``. Accept either, so a deploy never
-    fails over a variable name.
+    Only ``postgres://`` / ``postgresql://`` strings qualify. A
+    ``prisma+postgres://`` URL is the Prisma Client protocol and psycopg will
+    reject it, so picking it blindly would break every journal call.
     """
-    return os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
+    for name in CANDIDATES:
+        value = os.environ.get(name)
+        if _usable(value):
+            return value
+    return None
+
+
+def dsn_source() -> Optional[str]:
+    """Name of the variable that supplied the URL, for diagnostics."""
+    for name in CANDIDATES:
+        if _usable(os.environ.get(name)):
+            return name
+    return None
+
+
+def ignored_env() -> list[str]:
+    """Database variables that are set but unusable as a libpq URL."""
+    return [name for name in CANDIDATES if os.environ.get(name) and not _usable(os.environ.get(name))]
 
 
 def backend() -> str:

@@ -363,6 +363,13 @@ async function loadTrades() {
       if (data.storage && data.storage.persistent === false) {
         summary.textContent += " · ephemeral storage: trades reset when the server restarts";
       }
+      const storage = data.storage || {};
+      if (storage.backend === "postgres") {
+        summary.textContent += ` · postgres via ${storage.source_env || "DATABASE_URL"}`;
+      }
+      if (storage.ignored_env && storage.ignored_env.length) {
+        summary.textContent += ` · ignored ${storage.ignored_env.join(", ")} (not a libpq URL)`;
+      }
     }
 
     renderTrades();
