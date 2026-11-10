@@ -6,6 +6,7 @@ Run with:  python -m uvicorn app.main:app --reload
 from __future__ import annotations
 
 import os
+import re
 import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -17,15 +18,12 @@ from pydantic import BaseModel
 
 from . import config, data, journal, service
 
-DB_ENV_NAMES = (
-    "DATABASE_URL",
-    "DATABASE_URL_POOLED",
-    "POSTGRES_URL",
-    "PRISMA_DATABASE_URL",
-    "STORAGE_URL",
-    "STORAGE_DATABASE_URL",
-    "PGHOST",
-)
+DB_ENV_PATTERN = re.compile(r"(DATABASE|POSTGRES|PRISMA|^PG|DSN|STORAGE|_DB)", re.IGNORECASE)
+
+
+def _db_env_names() -> list[str]:
+    """Names of env vars that look database-related. Names only, never values."""
+    return sorted(name for name in os.environ if DB_ENV_PATTERN.search(name))[:20]
 
 
 class TradeIn(BaseModel):
@@ -80,7 +78,7 @@ def health() -> dict:
             "backend": journal.backend(),
             "source_env": journal.dsn_source(),
             "ignored_env": journal.ignored_env(),
-            "present": [name for name in DB_ENV_NAMES if os.environ.get(name)],
+            "present": _db_env_names(),
         },
         "vercel_env": os.environ.get("VERCEL_ENV"),
     }
