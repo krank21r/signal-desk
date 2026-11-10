@@ -68,8 +68,8 @@ def index() -> FileResponse:
 
 
 @app.get("/api/health")
-def health() -> dict:
-    return {
+def health(db: int = Query(0, description="1 runs a live query against the journal database")) -> dict:
+    payload: dict = {
         "status": "ok",
         "universe": len(config.all_symbols()),
         # Names only, never values: enough to diagnose "why is the journal on
@@ -82,6 +82,14 @@ def health() -> dict:
         },
         "vercel_env": os.environ.get("VERCEL_ENV"),
     }
+    if db:
+        # Opt-in probe: run one real query and report what came back. Without
+        # this, a broken connection surfaces only as a 500 on the trades route.
+        try:
+            payload["database"]["probe"] = f"ok ({len(journal.list_all())} rows)"
+        except Exception as exc:  # noqa: BLE001 - the point is to report it
+            payload["database"]["probe"] = f"{type(exc).__name__}: {str(exc)[:300]}"
+    return payload
 
 
 @app.get("/api/universe")
