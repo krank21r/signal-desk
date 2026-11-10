@@ -26,6 +26,23 @@ def _db_env_names() -> list[str]:
     return sorted(name for name in os.environ if DB_ENV_PATTERN.search(name))[:20]
 
 
+def _dsn_shape(value: str) -> str:
+    """Describe a DSN without revealing it.
+
+    Lengths and structure are enough to spot a truncated paste, a stray internal
+    space or a mangled parameter, which is otherwise guesswork from outside.
+    """
+    from urllib.parse import urlsplit
+
+    parts = urlsplit(value)
+    whitespace = any(ch.isspace() for ch in value)
+    return (
+        f"len={len(value)} scheme={parts.scheme} user_len={len(parts.username or '')} "
+        f"pass_len={len(parts.password or '')} host={parts.hostname}:{parts.port} "
+        f"path={parts.path} query={parts.query} internal_whitespace={whitespace}"
+    )
+
+
 class TradeIn(BaseModel):
     symbol: str
     side: str  # LONG or SHORT
@@ -89,6 +106,9 @@ def health(db: int = Query(0, description="1 runs a live query against the journ
             payload["database"]["probe"] = f"ok ({len(journal.list_all())} rows)"
         except Exception as exc:  # noqa: BLE001 - the point is to report it
             payload["database"]["probe"] = f"{type(exc).__name__}: {str(exc)[:300]}"
+            resolved = journal.dsn()
+            if resolved:
+                payload["database"]["dsn_shape"] = _dsn_shape(resolved)
     return payload
 
 
