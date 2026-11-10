@@ -32,14 +32,20 @@ SQLite cannot hold your trades there.
 
 Either works — both give a Postgres URL:
 
-- **Vercel Postgres** — in the project, Storage → Create Database → Postgres.
-- **Neon** — free tier at neon.tech, no card.
+- **Neon through Vercel** — Marketplace → Neon → install, create a database, then connect it to
+  the project. No separate Neon account needed. This is the current path: Vercel's own Postgres
+  offering is now only for accounts that already had one, and new stores go through the Neon
+  integration.
+- **Neon directly** — free tier at neon.tech, no card, then paste the URL into Vercel by hand.
 
 Copy the **pooled** connection string and keep `sslmode=require`:
 
 ```
 postgresql://user:password@host/dbname?sslmode=require
 ```
+
+Name the variable `DATABASE_URL`. The Neon Vercel integration sometimes injects `POSTGRES_URL`
+instead; the app reads whichever exists, so either is fine as long as one is set.
 
 ## 3. Verify the database before deploying
 

@@ -237,16 +237,26 @@ class PostgresStore:
 _STORES: dict[tuple[str, str], Store] = {}
 
 
+def dsn() -> Optional[str]:
+    """The Postgres URL, wherever the host decided to put it.
+
+    Neon's Vercel integration injects ``POSTGRES_URL``; Neon's own dashboard and
+    most other providers give ``DATABASE_URL``. Accept either, so a deploy never
+    fails over a variable name.
+    """
+    return os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
+
+
 def backend() -> str:
-    return "postgres" if os.environ.get("DATABASE_URL") else "sqlite"
+    return "postgres" if dsn() else "sqlite"
 
 
 def _store() -> Store:
     """Cached per (backend, location), so a test can repoint DB_PATH."""
-    dsn = os.environ.get("DATABASE_URL")
-    key = ("postgres", dsn) if dsn else ("sqlite", str(DB_PATH))
+    url = dsn()
+    key = ("postgres", url) if url else ("sqlite", str(DB_PATH))
     if key not in _STORES:
-        _STORES[key] = PostgresStore(dsn) if dsn else SqliteStore(Path(DB_PATH))
+        _STORES[key] = PostgresStore(url) if url else SqliteStore(Path(DB_PATH))
     return _STORES[key]
 
 
