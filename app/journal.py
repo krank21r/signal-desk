@@ -244,8 +244,20 @@ CANDIDATES = ("DATABASE_URL_POOLED", "POSTGRES_URL", "DATABASE_URL")
 PG_SCHEMES = ("postgres://", "postgresql://")
 
 
-def _usable(value: Optional[str]) -> bool:
-    return bool(value) and value.startswith(PG_SCHEMES)
+def _clean(value: Optional[str]) -> Optional[str]:
+    """Normalise a pasted DSN.
+
+    Environment variables copied out of a .env file routinely arrive with a
+    trailing newline or wrapped in quotes. Both break libpq in ways that look
+    like a server problem (``invalid sslmode value: "require\\n"``), so strip
+    them here rather than asking whoever pasted it to notice.
+    """
+    if not value:
+        return None
+    cleaned = value.strip()
+    if len(cleaned) >= 2 and cleaned[0] == cleaned[-1] and cleaned[0] in ("'", '"'):
+        cleaned = cleaned[1:-1].strip()
+    return cleaned or None
 
 
 def dsn() -> Optional[str]:
@@ -256,8 +268,8 @@ def dsn() -> Optional[str]:
     reject it, so picking it blindly would break every journal call.
     """
     for name in CANDIDATES:
-        value = os.environ.get(name)
-        if _usable(value):
+        value = _clean(os.environ.get(name))
+        if value and value.startswith(PG_SCHEMES):
             return value
     return None
 
@@ -265,14 +277,20 @@ def dsn() -> Optional[str]:
 def dsn_source() -> Optional[str]:
     """Name of the variable that supplied the URL, for diagnostics."""
     for name in CANDIDATES:
-        if _usable(os.environ.get(name)):
+        value = _clean(os.environ.get(name))
+        if value and value.startswith(PG_SCHEMES):
             return name
     return None
 
 
 def ignored_env() -> list[str]:
     """Database variables that are set but unusable as a libpq URL."""
-    return [name for name in CANDIDATES if os.environ.get(name) and not _usable(os.environ.get(name))]
+    ignored = []
+    for name in CANDIDATES:
+        value = _clean(os.environ.get(name))
+        if value and not value.startswith(PG_SCHEMES):
+            ignored.append(name)
+    return ignored
 
 
 def backend() -> str:
