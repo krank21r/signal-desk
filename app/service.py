@@ -348,10 +348,10 @@ def trades_payload() -> dict:
             if closed_r
             else None,
         },
-        # True on a serverless host: /tmp is writable but per-instance, so the
-        # journal is lost when the instance is recycled.
+        # Durability of the journal, not of the host: Postgres persists even on a
+        # serverless platform, while SQLite in /tmp does not survive an instance.
         "storage": {
-            "persistent": not config.EPHEMERAL_STORAGE,
+            "persistent": journal.backend() == "postgres" or not config.EPHEMERAL_STORAGE,
             "path": str(config.DATA_DIR),
             "backend": journal.backend(),
             "source_env": journal.dsn_source(),

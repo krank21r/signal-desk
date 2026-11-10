@@ -20,3 +20,6 @@ server.log
 
 # --- Reference clone used during the repo review (not part of this project) ---
 _langalpha/
+
+.vercel
+.env*
