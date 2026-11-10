@@ -1,0 +1,7 @@
+# Signal Desk runtime dependencies.
+# No data-provider SDKs: Yahoo Finance and Binance are reached over plain HTTPS.
+fastapi>=0.110
+uvicorn[standard]>=0.29
+
+# dev / tests
+pytest>=8.0

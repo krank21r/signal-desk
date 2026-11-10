@@ -1,0 +1,137 @@
+# Signal Desk
+
+Long/short signals for US stocks and crypto, with the backtest that produced them attached.
+
+```
+pip install -r requirements.txt
+python -m uvicorn --app-dir . app.main:app --port 8000
+```
+
+Open http://127.0.0.1:8000. On Windows, `.\run.ps1` does both steps.
+
+The dashboard follows your OS colour scheme on first load. The ☀ / ☾ button switches
+it and remembers the choice.
+
+On each visit the app diffs today's signals against the snapshot from your last visit and
+shows a banner listing whatever flipped (e.g. `BTC-USD SHORT → LONG`), clickable straight
+through to the chart. Dismiss it to acknowledge; the baseline then moves to now.
+
+**Trade alerts** (the second tab) lists every signal change in the window you pick — 7, 30 or
+90 days — newest first: what changed, when, the price then and now, the move since, and where
+the symbol stands today. It is rebuilt from each symbol's position series, so the page has
+real history instead of starting from your first visit. The badge on the tab is the count.
+
+Each entry or flip has an **I took it** button. Pressing it writes the trade to **My trades** with
+its entry price, a 2×ATR stop and a 3×ATR target recomputed at that price, plus a note recording
+which alert it came from. The same alert cannot be logged twice — the journal is idempotent on
+that source. My trades marks each position against the latest close (P&L, R multiple, days held)
+and lets you close or delete it. Trades live in `data/trades.db`, separate from the bar cache so
+clearing cached data never touches your book.
+
+No API keys. Price data comes from Yahoo Finance (stocks, and crypto as a fallback) and
+Binance spot (crypto), cached in `data/cache.db` so a reload does not re-hit the network.
+
+## What a signal is
+
+Four independent strategy families vote `-1 / 0 / +1` on every daily bar:
+
+| Family | Long vote | Short vote |
+| --- | --- | --- |
+| Trend | close > EMA200, EMA20 > EMA50, ADX ≥ 20 | mirror |
+| Momentum | 63-day change > 0 and close > EMA50 | mirror |
+| Breakout | close above the prior 55-bar high | close below the prior 55-bar low |
+| Mean reversion | RSI ≤ 30 while above EMA200 | RSI ≥ 70 while below EMA200 |
+
+Votes are weighted (breakout 1.5, the rest 1.0) and summed. A position opens at
+`|score| ≥ 2`, closes when `|score| < 0.5`, and flips directly on a decisive opposite score.
+Two regime gates block fresh entries: ATR% in the top decile of its trailing year, or ADX < 15.
+
+Exits, chosen by `EXIT_MODE` in `app/config.py`:
+
+| Mode | Rule | Target |
+| --- | --- | --- |
+| `partial` (default) | 2×ATR stop; half off at the target; remainder trails 3×ATR behind the best price | 3×ATR = 1.5R |
+| `fixed` | 2×ATR stop, hard target, whole position out | 3×ATR = 1.5R |
+| `trailing` | 2×ATR stop, pure 3×ATR chandelier trail | none |
+
+Under `partial`, a round trip exits in two pieces but is reported as **one trade**: size-weighted
+average exit, R summed across legs, and `target_hit` set when the first piece filled at the target.
+That keeps win rate and expectancy comparable with the other two modes.
+
+Once the target fills, the row reports the price it filled at (a ✓ in the table) and the remainder
+is tracked by the trail — so `trail 3×ATR` in the Target column means the objective is already
+banked, not that the row is missing a level.
+
+Signals are computed on the close and are actionable at the next open. The backtest enforces
+that lag, charges 2 bps per side on stocks and 15 bps on crypto, fills gaps at the open, and
+checks stops against each bar's high/low.
+
+## What the numbers are worth
+
+Across the default universe (20 symbols, ~3 years of daily bars), with the `partial` exit:
+
+| Metric | Value |
+| --- | --- |
+| Expectancy | 0.12R per trade |
+| Profit factor | 1.32 |
+| Win rate / target-hit rate | 42% / 35% |
+| Total return, net of costs | +23.5% |
+| Max drawdown | −35.8% |
+| t-stat | 0.34 |
+
+That t-stat is the honest headline: **the edge is not statistically distinguishable from zero**
+on this sample. The same engine scores 0.07R with a fixed target and 0.11R with a pure trail, so
+the exit rule matters more than the entry — which is the sort of thing the ledger is there to tell
+you. The rules beat buy-and-hold on about 6 of 20 symbols; this is a long/short rule set, not a
+bull-market replacement.
+
+Treat the backtest as a filter for broken logic, not as a forecast. Everything is in-sample
+over the window shown; there is no parameter search, which removes one way to fool yourself
+but does not create an edge.
+
+## Layout
+
+```
+app/config.py       universe, parameters, cost model
+app/indicators.py   EMA, RSI, ATR, ADX (Wilder), Donchian, Hurst
+app/data.py         Yahoo + Binance fetch, SQLite cache
+app/signals.py      votes, score, state machine, levels
+app/backtest.py     bar-by-bar simulation, trade ledger, statistics
+app/service.py      orchestration and caching
+app/main.py         FastAPI routes
+app/static/         dashboard (no framework, no CDN)
+scripts/scan.py     terminal table; --symbol for one name
+scripts/compare_exits.py  fixed vs trailing vs partial exit across the universe
+tests/              indicator maths
+```
+
+## API
+
+| Route | Purpose |
+| --- | --- |
+| `GET /api/signals?asset_class=all\|stock\|crypto` | table rows + counts |
+| `GET /api/asset/{symbol}?bars=220` | candles, EMAs, entry/exit marks, full backtest |
+| `GET /api/backtest/{symbol}` | statistics only |
+| `GET /api/alerts?asset_class=all\|stock\|crypto&days=30` | every signal change in the window, newest first |
+| `GET /api/trades` | the journal, marked against the latest close |
+| `POST /api/trades` | log a trade `{symbol, side, entry?, stop?, target?, note?, source?}` |
+| `POST /api/trades/{id}/close` | close at `{price?}`, defaulting to the latest close |
+| `DELETE /api/trades/{id}` | remove a trade |
+| `GET /api/universe`, `GET /api/health` | universe and liveness |
+
+## Tests
+
+```
+python -m pytest tests -q
+```
+
+Covers EMA seeding, RSI extremes, Wilder ATR decay, ADX directional split on clean trends, and
+the Donchian window boundary. One regression test pins the ADX bug from the reference project
+this started from: it masked `+DM` before testing `-DM` against it, which inflates `-DI`.
+
+## Limits
+
+Daily bars only, long/short with one unit of equity, no leverage, no borrow cost, no funding on
+shorts, no slippage model beyond fixed basis points, and no intraday fills. Crypto pairs are
+USD-quoted spot; equity data is split-adjusted but not dividend-adjusted. Nothing here routes
+orders. Research tooling, not investment advice.

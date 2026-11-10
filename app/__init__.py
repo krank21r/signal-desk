@@ -1,0 +1,1 @@
+"""Signal Desk application package."""

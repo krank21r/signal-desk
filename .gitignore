@@ -1,0 +1,22 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# --- Local data: never commit market cache or the trade journal ---
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+
+# --- Runtime / tooling ---
+server.log
+.zwork/
+.vercel/
+.env
+.env.local
+
+# --- Reference clone used during the repo review (not part of this project) ---
+_langalpha/

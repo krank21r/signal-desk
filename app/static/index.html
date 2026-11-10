@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#08090c" id="themeColor">
+<title>Signal Desk — long/short signals for stocks and crypto</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/static/styles.css">
+<script>
+  // Set the theme before first paint so a light-preferring OS does not flash dark.
+  (function () {
+    var theme = "dark";
+    try {
+      var saved = localStorage.getItem("signaldesk.theme");
+      if (saved === "light" || saved === "dark") {
+        theme = saved;
+      } else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) {
+        theme = "light";
+      }
+    } catch (e) {
+      /* storage blocked: stay on the default */
+    }
+    document.documentElement.dataset.theme = theme;
+  })();
+</script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="glyph" aria-hidden="true">▚</span>
+    <span class="wordmark">Signal<b>Desk</b></span>
+  </div>
+  <nav class="views" role="tablist" aria-label="View">
+    <button class="view is-active" type="button" data-view="signals" role="tab" aria-selected="true">Signals</button>
+    <button class="view" type="button" data-view="alerts" role="tab" aria-selected="false">Trade alerts<span class="badge" id="alertBadge" hidden></span></button>
+    <button class="view" type="button" data-view="trades" role="tab" aria-selected="false">My trades<span class="badge" id="tradeBadge" hidden></span></button>
+  </nav>
+  <div class="meta">
+    <span class="stamp" id="stamp">connecting…</span>
+    <button class="btn btn-icon" id="theme" type="button" aria-pressed="false" aria-label="Switch to light theme" title="Switch to light theme">☀</button>
+    <button class="btn" id="refresh" type="button">Refresh</button>
+  </div>
+</header>
+
+<div class="controls">
+  <div class="tabs" role="tablist" aria-label="Asset class">
+    <button class="tab is-active" data-class="all" role="tab" aria-selected="true" type="button">All</button>
+    <button class="tab" data-class="stock" role="tab" aria-selected="false" type="button">Stocks</button>
+    <button class="tab" data-class="crypto" role="tab" aria-selected="false" type="button">Crypto</button>
+  </div>
+  <div class="counts" id="counts"></div>
+  <label class="search">
+    <span class="visually-hidden">Filter by symbol</span>
+    <input id="search" type="search" placeholder="Filter symbol…" autocomplete="off" spellcheck="false">
+  </label>
+</div>
+
+<div class="banner" id="banner" role="status" aria-live="polite" hidden></div>
+
+<main>
+  <div class="tablewrap" id="signalsView">
+    <table class="grid" id="grid">
+      <thead>
+        <tr>
+          <th class="col-sym">Symbol</th>
+          <th>Last</th>
+          <th class="sortable" data-sort="change_1d">1D</th>
+          <th class="sortable" data-sort="change_30d">30D</th>
+          <th>Signal</th>
+          <th class="sortable" data-sort="score">Score</th>
+          <th>Entry</th>
+          <th>Stop</th>
+          <th>Target</th>
+          <th class="sortable" data-sort="win_rate">Win %</th>
+          <th class="sortable" data-sort="expectancy_r">Exp R</th>
+          <th>Trades</th>
+        </tr>
+      </thead>
+      <tbody id="rows">
+        <tr class="skeleton-row"><td colspan="12"><span class="sk" style="width:82%"></span></td></tr>
+        <tr class="skeleton-row"><td colspan="12"><span class="sk" style="width:74%"></span></td></tr>
+        <tr class="skeleton-row"><td colspan="12"><span class="sk" style="width:79%"></span></td></tr>
+        <tr class="skeleton-row"><td colspan="12"><span class="sk" style="width:66%"></span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <section class="viewpane" id="alertsView" hidden>
+    <div class="viewbar">
+      <span class="viewbar-summary" id="alertSummary">Loading…</span>
+      <label class="viewbar-window">
+        <span class="visually-hidden">Alert window</span>
+        <select id="alertWindow">
+          <option value="7">7 days</option>
+          <option value="30" selected>30 days</option>
+          <option value="90">90 days</option>
+        </select>
+      </label>
+    </div>
+    <div class="tablewrap">
+      <table class="grid grid-alerts">
+        <thead>
+          <tr>
+            <th class="col-sym">Symbol</th>
+            <th>Change</th>
+            <th>When</th>
+            <th>Age</th>
+            <th>Price then</th>
+            <th>Price now</th>
+            <th>Move since</th>
+            <th>Now</th>
+            <th>Log</th>
+          </tr>
+        </thead>
+        <tbody id="alertRows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="viewpane" id="tradesView" hidden>
+    <div class="viewbar">
+      <span class="viewbar-summary" id="tradeSummary">No trades logged yet.</span>
+    </div>
+    <div class="tablewrap">
+      <table class="grid grid-trades">
+        <thead>
+          <tr>
+            <th class="col-sym">Symbol</th>
+            <th>Side</th>
+            <th>Opened</th>
+            <th>Entry</th>
+            <th>Now</th>
+            <th>P&amp;L</th>
+            <th>R</th>
+            <th>Stop</th>
+            <th>Target</th>
+            <th>Status</th>
+            <th class="col-actions"></th>
+          </tr>
+        </thead>
+        <tbody id="tradeRows"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<footer class="footnote" id="footnote">
+  Signals are computed on daily bars from public price data, executed at the next session's open
+  with round-trip costs charged. Backtest statistics are in-sample over the displayed window —
+  they describe how these rules behaved on that history, not how they will behave next.
+  Research tooling, not investment advice.
+</footer>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle" hidden>
+  <button class="drawer-close" id="close" type="button" aria-label="Close details">×</button>
+  <div id="drawerBody"></div>
+</aside>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
