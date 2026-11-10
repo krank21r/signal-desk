@@ -25,13 +25,20 @@ SOURCE = "smoke-test:AAPL:LONG"
 
 
 def main() -> int:
-    dsn = os.environ.get("DATABASE_URL")
+    dsn = journal.dsn()
     if not dsn:
-        print("DATABASE_URL is not set. Point it at a Postgres database first.", file=sys.stderr)
+        print(
+            "No usable Postgres URL. Set DATABASE_URL_POOLED, POSTGRES_URL or DATABASE_URL "
+            "to a postgres:// string (a prisma+postgres:// one is for Prisma Client only).",
+            file=sys.stderr,
+        )
         return 2
 
     print(f"backend       : {journal.backend()}")
+    print(f"source        : {journal.dsn_source()}")
     print(f"host          : {dsn.split('@')[-1].split('/')[0]}")
+    if journal.ignored_env():
+        print(f"ignored       : {', '.join(journal.ignored_env())} (not a libpq URL)")
 
     journal.init()
     print("schema        : ok")
