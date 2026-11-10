@@ -129,6 +129,14 @@ Covers EMA seeding, RSI extremes, Wilder ATR decay, ADX directional split on cle
 the Donchian window boundary. One regression test pins the ADX bug from the reference project
 this started from: it masked `+DM` before testing `-DM` against it, which inflates `-DI`.
 
+## Deploying
+
+`docs/DEPLOY.md` has the full path to GitHub and Vercel. The short version: the journal is the
+only stateful part, so it runs on SQLite locally and on Postgres in production (set
+`DATABASE_URL`, verified with `python scripts/check_postgres.py`). `vercel.json` and
+`api/index.py` are ready; on Vercel the bar cache falls back to `/tmp` and background warming is
+skipped, which is why the first request after idle takes a few extra seconds.
+
 ## Limits
 
 Daily bars only, long/short with one unit of equity, no leverage, no borrow cost, no funding on

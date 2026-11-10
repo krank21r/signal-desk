@@ -3,5 +3,9 @@
 fastapi>=0.110
 uvicorn[standard]>=0.29
 
+# Postgres backend for the trade journal (only used when DATABASE_URL is set).
+# On Vercel this is required: the filesystem is read-only apart from /tmp.
+psycopg[binary]>=3.1
+
 # dev / tests
 pytest>=8.0

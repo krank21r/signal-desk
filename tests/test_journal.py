@@ -25,7 +25,9 @@ def test_add_opens_a_long_trade():
 def test_short_side_is_stored_as_minus_one():
     trade = journal.add("BTC-USD", -1, entry=76000.0)
     assert trade["side"] == "SHORT"
-    with journal._connect() as conn:  # raw value, not the display label
+    import sqlite3
+
+    with sqlite3.connect(journal.DB_PATH) as conn:  # raw value, not the display label
         raw = conn.execute("SELECT side FROM trades WHERE id = ?", (trade["id"],)).fetchone()[0]
     assert raw == -1
 
