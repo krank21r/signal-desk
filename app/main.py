@@ -17,6 +17,16 @@ from pydantic import BaseModel
 
 from . import config, data, journal, service
 
+DB_ENV_NAMES = (
+    "DATABASE_URL",
+    "DATABASE_URL_POOLED",
+    "POSTGRES_URL",
+    "PRISMA_DATABASE_URL",
+    "STORAGE_URL",
+    "STORAGE_DATABASE_URL",
+    "PGHOST",
+)
+
 
 class TradeIn(BaseModel):
     symbol: str
@@ -61,7 +71,19 @@ def index() -> FileResponse:
 
 @app.get("/api/health")
 def health() -> dict:
-    return {"status": "ok", "universe": len(config.all_symbols())}
+    return {
+        "status": "ok",
+        "universe": len(config.all_symbols()),
+        # Names only, never values: enough to diagnose "why is the journal on
+        # SQLite" from outside without exposing a credential.
+        "database": {
+            "backend": journal.backend(),
+            "source_env": journal.dsn_source(),
+            "ignored_env": journal.ignored_env(),
+            "present": [name for name in DB_ENV_NAMES if os.environ.get(name)],
+        },
+        "vercel_env": os.environ.get("VERCEL_ENV"),
+    }
 
 
 @app.get("/api/universe")
