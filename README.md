@@ -77,24 +77,21 @@ Across the default universe (20 symbols, ten years of daily bars), with the `par
 
 | Metric | Value |
 | --- | --- |
-| Trades | 1,766 |
-| Win rate | 42.1% |
-| Expectancy | +0.16R per trade |
-| Profit factor | 1.42 |
-| t-stat, date-clustered | **4.09** |
-| Crypto / stocks | +0.21R (t 3.04) / +0.12R (t 2.98) |
-| Long / short | **+0.25R (t 5.22)** / −0.03R (t −1.03) |
+| Trades | 1,192 |
+| Win rate | 44.4% |
+| Expectancy | +0.23R per trade |
+| Profit factor | 1.57 |
+| t-stat, date-clustered | **5.19** |
+| Crypto / stocks | +0.27R (t 3.11) / +0.21R (t 4.15) |
 
 The window matters more than anything else in this file. On three years the same rules scored
 +0.12R with a t of 0.34 and the stock half looked worthless (+0.005R); over ten years the stock
-half is +0.121R with a t of 2.98. The short sample was the misleading one, and that cut both ways.
+half is +0.21R with a t of 4.15. The short sample was the misleading one.
 
-Two things the breakdown says plainly:
-
-- **The short side does not work** (−0.03R over 556 trades, t −1.03). Every bit of the edge is on
-  the long side, which matches the known asymmetry between momentum and shorting.
-- Both asset classes clear the bar once given enough history, so "crypto only" was a
-  three-year artefact rather than a structural finding.
+**Shorts are disabled** (`ALLOW_SHORTS` in `app/config.py`). Over ten years the short side
+produced −0.03R across 556 trades with a t of −1.03 while longs produced +0.25R with a t of
+5.22, so the engine computes the bearish score but never opens a short. Switching the flag back
+on restores them; the Stats page records which mode produced the numbers it shows.
 
 Treat the backtest as a filter for broken logic, not as a forecast. It is still in-sample over
 one dataset; there is no parameter search, which removes one way to fool yourself

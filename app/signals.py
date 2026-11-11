@@ -221,10 +221,10 @@ def series(candles: Sequence[Candle]) -> list[SignalPoint]:
         if position == 0:
             if not blocked and score >= config.ENTRY_SCORE:
                 position = 1
-            elif not blocked and score <= -config.ENTRY_SCORE:
+            elif not blocked and score <= -config.ENTRY_SCORE and config.ALLOW_SHORTS:
                 position = -1
         elif position > 0:
-            if score <= -config.ENTRY_SCORE and not blocked:
+            if config.ALLOW_SHORTS and score <= -config.ENTRY_SCORE and not blocked:
                 position = -1  # decisive reversal
             elif score < config.EXIT_SCORE:
                 position = 0
@@ -290,10 +290,11 @@ def summarize(points: Sequence[SignalPoint], candles: Sequence[Candle]) -> dict:
 
     if side == 0:
         # Levels a fresh entry would use. Only when there is a real directional
-        # lean: a zero score has no side to trade.
-        if last.atr and abs(last.score) >= 1.0:
-            preview = levels(last.close, last.atr, 1 if last.score > 0 else -1)
-            payload["preview"] = preview
+        # lean, and only on a side the engine is allowed to trade: quoting short
+        # levels while shorts are disabled would invent a trade that never fires.
+        direction = 1 if last.score > 0 else -1
+        if last.atr and abs(last.score) >= 1.0 and (direction > 0 or config.ALLOW_SHORTS):
+            payload["preview"] = levels(last.close, last.atr, direction)
         return payload
 
     # Entry reference: the bar where this stance began.

@@ -209,3 +209,28 @@ def test_costs_reduce_returns_versus_a_costless_run():
     finally:
         config.COSTS_BPS.update(original)
     assert expensive < free
+
+
+def test_long_only_mode_never_opens_a_short():
+    """Shorts are off by default on the evidence; the stance must stay >= 0."""
+    original = config.ALLOW_SHORTS
+    try:
+        config.ALLOW_SHORTS = False
+        points = signals.series(synthetic(seed=13))
+        assert points
+        assert all(point.position >= 0 for point in points)
+        assert any(point.position > 0 for point in points), "long-only still has to trade"
+        # The bearish score is still computed and reported, just not acted on.
+        assert any(point.score < -config.ENTRY_SCORE for point in points)
+    finally:
+        config.ALLOW_SHORTS = original
+
+
+def test_shorts_come_back_when_enabled():
+    original = config.ALLOW_SHORTS
+    try:
+        config.ALLOW_SHORTS = True
+        points = signals.series(synthetic(seed=13))
+        assert any(point.position < 0 for point in points)
+    finally:
+        config.ALLOW_SHORTS = original

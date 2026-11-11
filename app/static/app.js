@@ -501,6 +501,7 @@ function renderStats() {
   const overall = data.overall || {};
 
   const summary = $("#statsSummary");
+  const settings = data.settings || {};
   if (summary) {
     const when = new Date(data.generated_at).toLocaleTimeString("en-GB", {
       hour: "2-digit",
@@ -508,7 +509,7 @@ function renderStats() {
     });
     summary.textContent = `${overall.trades ?? 0} closed trades across ${
       (data.symbols || []).length
-    } symbols · generated ${when}`;
+    } symbols · generated ${when}${settings.allow_shorts === false ? " · long-only" : ""}`;
   }
 
   const cells = [
@@ -563,7 +564,11 @@ function renderStats() {
     </table>
     <p class="note">Every trade the engine closed on the history it has, pooled. “t (clustered)”
     counts moves on the same day as one observation, which is the conservative version of the
-    test — |t| ≥ 2 is the usual bar for calling something real. Click a row for that symbol.</p>`;
+    test — |t| ≥ 2 is the usual bar for calling something real. Click a row for that symbol.${
+      settings.allow_shorts === false
+        ? " Shorts are disabled: over ten years they scored −0.03R across 556 trades (t −1.03), so the engine only opens longs. The bearish score is still computed and shown."
+        : ""
+    }</p>`;
 }
 
 function renderActiveView() {

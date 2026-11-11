@@ -440,6 +440,15 @@ def stats_payload() -> dict:
             side: _pooled([t for t in pooled if t["side"] == side]) for side in ("LONG", "SHORT")
         },
         "symbols": symbols,
+        # What produced these numbers, shown on the page so the setting is never
+        # invisible: shorts off is a deliberate choice, not an oversight.
+        "settings": {
+            "allow_shorts": config.ALLOW_SHORTS,
+            "history_bars": config.HISTORY_BARS,
+            "exit_mode": config.EXIT_MODE,
+            "stop_atr": config.STOP_ATR,
+            "target_atr": config.TARGET_ATR,
+        },
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
 

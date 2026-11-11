@@ -124,6 +124,12 @@ WEIGHTS: dict[str, float] = {
 ENTRY_SCORE = 2.0  # |score| required to open a position
 EXIT_SCORE = 0.5  # |score| below which an open position is closed (hysteresis)
 
+# Shorts are disabled on the evidence: over ten years the short side produced
+# -0.031R across 556 trades (date-clustered t -1.03) while longs produced
+# +0.248R (t 5.22). The bearish score is still computed and shown, so you can
+# see what the model thinks; it just never opens a short position.
+ALLOW_SHORTS = False
+
 STOP_ATR = 2.0
 TARGET_ATR = 3.0  # 1.5R
 TRAIL_ATR = 3.0  # chandelier trail distance, measured off the bar extreme
