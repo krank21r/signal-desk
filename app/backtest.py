@@ -352,5 +352,7 @@ def run(
         "exit_mode": mode,
         "live": live,
         "equity_curve": curve,
-        "trade_log": [t.as_dict() for t in trades[-40:]],
+        # The full ledger, not a tail: pooling across symbols needs every trade.
+        # The drawer trims to the ten most recent for display.
+        "trade_log": [t.as_dict() for t in trades],
     }

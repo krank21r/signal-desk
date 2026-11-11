@@ -36,6 +36,7 @@
     <button class="view is-active" type="button" data-view="signals" role="tab" aria-selected="true">Signals</button>
     <button class="view" type="button" data-view="alerts" role="tab" aria-selected="false">Trade alerts<span class="badge" id="alertBadge" hidden></span></button>
     <button class="view" type="button" data-view="trades" role="tab" aria-selected="false">My trades<span class="badge" id="tradeBadge" hidden></span></button>
+    <button class="view" type="button" data-view="stats" role="tab" aria-selected="false">Stats</button>
   </nav>
   <div class="meta">
     <span class="stamp" id="stamp">connecting…</span>
@@ -142,6 +143,15 @@
         </thead>
         <tbody id="tradeRows"></tbody>
       </table>
+    </div>
+  </section>
+
+  <section class="viewpane" id="statsView" hidden>
+    <div class="viewbar">
+      <span class="viewbar-summary" id="statsSummary">Loading…</span>
+    </div>
+    <div class="tablewrap">
+      <div class="stats-body" id="statsBody"></div>
     </div>
   </section>
 </main>

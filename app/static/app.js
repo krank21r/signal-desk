@@ -15,6 +15,8 @@ const state = {
   trades: [],
   tradeSummary: {},
   loggedSources: new Set(),
+  stats: null,
+  statsLoading: false,
   loading: false,
 };
 
@@ -473,14 +475,106 @@ async function deleteTrade(id) {
   }
 }
 
+/* ------------------------------------------------------------------- stats */
+
+async function loadStats() {
+  if (state.statsLoading) return;
+  state.statsLoading = true;
+  const body = $("#statsBody");
+  if (body && !state.stats) body.innerHTML = `<div class="sk" style="width:60%;height:12px"></div>`;
+  try {
+    state.stats = await getJSON("/api/stats");
+    renderStats();
+  } catch (error) {
+    if (body) body.innerHTML = `<div class="errorbar">Could not load statistics: ${error.message}</div>`;
+    const summary = $("#statsSummary");
+    if (summary) summary.textContent = "unavailable";
+  } finally {
+    state.statsLoading = false;
+  }
+}
+
+function renderStats() {
+  const data = state.stats;
+  const body = $("#statsBody");
+  if (!data || !body) return;
+  const overall = data.overall || {};
+
+  const summary = $("#statsSummary");
+  if (summary) {
+    const when = new Date(data.generated_at).toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    summary.textContent = `${overall.trades ?? 0} closed trades across ${
+      (data.symbols || []).length
+    } symbols · generated ${when}`;
+  }
+
+  const cells = [
+    statBlock("Trades", overall.trades ?? "—", `${overall.wins ?? 0}W / ${overall.losses ?? 0}L`),
+    statBlock("Win rate", overall.win_rate != null ? `${nf(overall.win_rate, 1)}%` : "—", "closed trades"),
+    statBlock("Expectancy", overall.expectancy_r != null ? `${nf(overall.expectancy_r, 3)}R` : "—", "per trade", toneOf(overall.expectancy_r)),
+    statBlock("Profit factor", overall.profit_factor != null ? nf(overall.profit_factor, 2) : "—", "gross win ÷ loss"),
+    statBlock("Avg win", overall.avg_win_pct != null ? fmtPct(overall.avg_win_pct, 1) : "—", "", "pos"),
+    statBlock("Avg loss", overall.avg_loss_pct != null ? fmtPct(overall.avg_loss_pct, 1) : "—", "", "neg"),
+    statBlock("Payoff", overall.payoff != null ? `${nf(overall.payoff, 2)}×` : "—", "avg win ÷ avg loss"),
+    statBlock(
+      "t (clustered)",
+      overall.t_clustered != null ? nf(overall.t_clustered, 2) : "—",
+      `≥2 is the bar · ${overall.clusters ?? 0} dates`
+    ),
+  ].join("");
+
+  const splitRow = (entry) =>
+    `<b>${entry.trades ?? "—"}</b> trades · <b>${nf(entry.win_rate, 1)}%</b> win · <b class="${toneOf(
+      entry.expectancy_r
+    )}">${nf(entry.expectancy_r, 2)}R</b> exp · PF <b>${
+      entry.profit_factor != null ? nf(entry.profit_factor, 2) : "—"
+    }</b> · t <b>${entry.t_clustered != null ? nf(entry.t_clustered, 2) : "—"}</b>`;
+
+  const rows = (data.symbols || [])
+    .map(
+      (row) => `<tr data-symbol="${row.symbol}">
+        <td>${row.symbol}</td>
+        <td>${row.trades ?? "—"}</td>
+        <td>${row.win_rate != null ? nf(row.win_rate, 1) : "—"}</td>
+        <td class="pos">${row.avg_win_pct != null ? fmtPct(row.avg_win_pct, 1) : "—"}</td>
+        <td class="neg">${row.avg_loss_pct != null ? fmtPct(row.avg_loss_pct, 1) : "—"}</td>
+        <td class="${toneOf(row.expectancy_r)}">${row.expectancy_r != null ? nf(row.expectancy_r, 3) : "—"}</td>
+        <td>${row.profit_factor != null ? nf(row.profit_factor, 2) : "—"}</td>
+        <td>${row.t_clustered != null ? nf(row.t_clustered, 2) : "—"}</td>
+      </tr>`
+    )
+    .join("");
+
+  body.innerHTML = `
+    <div class="statgrid five">${cells}</div>
+    <div class="block-title">By market</div>
+    <div class="split-row">stocks: ${splitRow(data.by_class.stock || {})}</div>
+    <div class="split-row">crypto: ${splitRow(data.by_class.crypto || {})}</div>
+    <div class="block-title">By side</div>
+    <div class="split-row">long: ${splitRow(data.by_side.LONG || {})}</div>
+    <div class="split-row">short: ${splitRow(data.by_side.SHORT || {})}</div>
+    <div class="block-title">Per symbol · sorted by expectancy</div>
+    <table class="stats-table">
+      <thead><tr><th>Symbol</th><th>Trades</th><th>Win %</th><th>Avg win</th><th>Avg loss</th><th>Exp R</th><th>PF</th><th>t</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p class="note">Every trade the engine closed on the history it has, pooled. “t (clustered)”
+    counts moves on the same day as one observation, which is the conservative version of the
+    test — |t| ≥ 2 is the usual bar for calling something real. Click a row for that symbol.</p>`;
+}
+
 function renderActiveView() {
   if (state.view === "alerts") renderAlerts();
   else if (state.view === "trades") renderTrades();
+  else if (state.view === "stats") renderStats();
   else renderTable();
 }
 
 function switchView(name, pushHash = true) {
-  state.view = name === "alerts" || name === "trades" ? name : "signals";
+  state.view = ["alerts", "trades", "stats"].includes(name) ? name : "signals";
   $$(".view").forEach((button) => {
     const active = button.dataset.view === state.view;
     button.classList.toggle("is-active", active);
@@ -489,6 +583,7 @@ function switchView(name, pushHash = true) {
   $("#signalsView").hidden = state.view !== "signals";
   $("#alertsView").hidden = state.view !== "alerts";
   $("#tradesView").hidden = state.view !== "trades";
+  $("#statsView").hidden = state.view !== "stats";
   $("#counts").hidden = state.view !== "signals";
   if (pushHash) {
     const suffix = state.view === "signals" ? "" : `#${state.view}`;
@@ -496,6 +591,7 @@ function switchView(name, pushHash = true) {
   }
   if (state.view === "alerts") loadAlerts();
   if (state.view === "trades") loadTrades();
+  if (state.view === "stats") loadStats();
   renderActiveView();
 }
 
@@ -1129,6 +1225,10 @@ function bind() {
     const remove = event.target.closest("[data-delete]");
     if (remove) deleteTrade(Number(remove.dataset.delete));
   });
+  $("#statsBody").addEventListener("click", (event) => {
+    const row = event.target.closest("tr[data-symbol]");
+    if (row) openDetail(row.dataset.symbol);
+  });
   $("#banner").addEventListener("click", (event) => {
     const chip = event.target.closest(".chg");
     if (chip) {
@@ -1146,7 +1246,7 @@ function bind() {
 
 initTheme();
 bind();
-if (location.hash === "#alerts" || location.hash === "#trades") {
+if (["#alerts", "#trades", "#stats"].includes(location.hash)) {
   switchView(location.hash.slice(1), false);
 }
 load();

@@ -212,6 +212,56 @@ body {
 .col-actions { width: 90px; }
 .grid-trades td .mini-btn + .mini-btn { margin-left: 5px; }
 
+/* ------------------------------------------------------------ stats view */
+
+.stats-body { padding: 14px 18px 40px; }
+
+.split-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.split-row b { color: var(--text); font-weight: 500; }
+
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+.stats-table th {
+  text-align: right;
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.stats-table th:first-child, .stats-table td:first-child { text-align: left; padding-left: 0; }
+.stats-table td {
+  text-align: right;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line-soft);
+  white-space: nowrap;
+}
+.stats-table tr[data-symbol] { cursor: pointer; }
+.stats-table tr[data-symbol]:hover { background: var(--panel-2); }
+
+@media (max-width: 640px) {
+  .stats-table th:nth-child(4), .stats-table td:nth-child(4),
+  .stats-table th:nth-child(5), .stats-table td:nth-child(5),
+  .stats-table th:nth-child(8), .stats-table td:nth-child(8) { display: none; }
+  .stats-body { padding: 12px 12px 32px; }
+}
+
 .link-sym {
   font-family: var(--mono);
   font-size: 12px;

@@ -154,6 +154,12 @@ def api_trades() -> dict:
     return service.trades_payload()
 
 
+@app.get("/api/stats")
+def api_stats() -> dict:
+    """Every backtested trade pooled: win/loss, payoff, significance."""
+    return service.stats_payload()
+
+
 @app.post("/api/trades", status_code=201)
 def api_add_trade(payload: TradeIn) -> dict:
     symbol = payload.symbol.upper()

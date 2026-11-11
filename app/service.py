@@ -360,6 +360,90 @@ def trades_payload() -> dict:
     }
 
 
+# --------------------------------------------------------------------------
+# pooled backtest statistics: win/loss across every closed trade
+# --------------------------------------------------------------------------
+
+
+def _t_stat(values: list[float]) -> Optional[float]:
+    if len(values) < 3:
+        return None
+    mean = sum(values) / len(values)
+    var = sum((v - mean) ** 2 for v in values) / (len(values) - 1)
+    sd = var ** 0.5
+    return round(mean / (sd / len(values) ** 0.5), 2) if sd else None
+
+
+def _pooled(trades: list[dict]) -> dict:
+    """Win/loss, payoff and significance for a set of closed trades."""
+    if not trades:
+        return {"trades": 0}
+
+    rets = [t["ret_pct"] for t in trades]
+    rs = [t["r_multiple"] for t in trades]
+    wins = [r for r in rets if r > 0]
+    losses = [r for r in rets if r <= 0]
+
+    # Trades opened on the same day are not independent: twelve symbols selling
+    # off together is one observation. Cluster by entry date for the honest t.
+    buckets: dict[str, list[float]] = {}
+    for trade in trades:
+        buckets.setdefault(trade.get("entry_date", ""), []).append(trade["r_multiple"])
+    clusters = [sum(v) / len(v) for v in buckets.values()]
+
+    return {
+        "trades": len(trades),
+        "wins": len(wins),
+        "losses": len(losses),
+        "win_rate": round(len(wins) / len(rets) * 100, 1),
+        "avg_win_pct": round(sum(wins) / len(wins), 2) if wins else None,
+        "avg_loss_pct": round(sum(losses) / len(losses), 2) if losses else None,
+        "payoff": round((sum(wins) / len(wins)) / abs(sum(losses) / len(losses)), 2)
+        if wins and losses
+        else None,
+        "expectancy_pct": round(sum(rets) / len(rets), 3),
+        "expectancy_r": round(sum(rs) / len(rs), 3),
+        "profit_factor": round(sum(wins) / abs(sum(losses)), 2) if wins and losses else None,
+        "best_pct": round(max(rets), 1),
+        "worst_pct": round(min(rets), 1),
+        "t_stat": _t_stat(rs),
+        "t_clustered": _t_stat(clusters),
+        "clusters": len(clusters),
+        "target_hits": sum(1 for t in trades if t.get("target_hit")),
+    }
+
+
+def stats_payload() -> dict:
+    """Every backtested trade, pooled — plus the breakdowns that matter."""
+    pooled: list[dict] = []
+    symbols: list[dict] = []
+
+    for symbol in config.all_symbols():
+        try:
+            analysis = analyze(symbol)
+        except data.DataError:
+            continue
+        trades = analysis.stats.get("trade_log", [])
+        tagged = [{**trade, "kind": analysis.kind} for trade in trades]
+        pooled.extend(tagged)
+        row = _pooled(tagged)
+        row.update({"symbol": symbol, "name": analysis.name, "kind": analysis.kind})
+        symbols.append(row)
+
+    symbols.sort(key=lambda row: row.get("expectancy_r") or 0, reverse=True)
+    return {
+        "overall": _pooled(pooled),
+        "by_class": {
+            kind: _pooled([t for t in pooled if t["kind"] == kind]) for kind in ("stock", "crypto")
+        },
+        "by_side": {
+            side: _pooled([t for t in pooled if t["side"] == side]) for side in ("LONG", "SHORT")
+        },
+        "symbols": symbols,
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
+
+
 def alerts(kind: Optional[str] = None, days: int = 30, limit: int = 300) -> dict:
     """Signal changes across the universe, newest first.
 
