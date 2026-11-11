@@ -28,6 +28,11 @@ that source. My trades marks each position against the latest close (P&L, R mult
 and lets you close or delete it. Trades live in `data/trades.db`, separate from the bar cache so
 clearing cached data never touches your book.
 
+**Stats** (the fourth tab) pools every trade the engine closed on the history it has: win rate,
+average win and loss, payoff, expectancy, profit factor and a date-clustered t-stat, split by
+market and by side, with a per-symbol table sorted by expectancy. The pooled numbers are the
+honest ones — averaging twenty noisy per-symbol results hides where the edge actually comes from.
+
 No API keys. Price data comes from Yahoo Finance (stocks, and crypto as a fallback) and
 Binance spot (crypto), cached in `data/cache.db` so a reload does not re-hit the network.
 

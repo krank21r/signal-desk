@@ -71,6 +71,10 @@ NAMES: dict[str, str] = dict(STOCKS) | dict(CRYPTO)
 
 YAHOO_RANGE = "3y"
 BINANCE_LIMIT = 1000
+# Cap the history a backtest sees, so a symbol's results do not change when the
+# primary feed is unavailable: Binance returns 1,000 daily bars while Yahoo's
+# fallback returns three years (~1,100 for crypto).
+HISTORY_BARS = 1000
 CACHE_TTL_SECONDS = 900  # 15 minutes for bar data
 ANALYSIS_TTL_SECONDS = 300  # 5 minutes for computed analysis
 

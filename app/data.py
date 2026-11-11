@@ -202,10 +202,16 @@ def get_candles(symbol: str, use_cache: bool = True) -> list[Candle]:
     """
     kind = config.asset_class(symbol)
     key = f"{kind}:{symbol}"
+
+    def _window(rows: list[Candle]) -> list[Candle]:
+        """A fixed-length tail, so the history a backtest sees is the same
+        whether the primary feed or a fallback answered."""
+        return rows[-config.HISTORY_BARS :] if len(rows) > config.HISTORY_BARS else rows
+
     if use_cache:
         cached = _cache_get(key, config.CACHE_TTL_SECONDS)
         if cached:
-            return [Candle(**row) for row in cached]
+            return _window([Candle(**row) for row in cached])
 
     providers = [fetch_binance, fetch_yahoo] if kind == "crypto" else [fetch_yahoo]
     errors: list[str] = []
@@ -218,11 +224,11 @@ def get_candles(symbol: str, use_cache: bool = True) -> list[Candle]:
         if bars:
             bars.sort(key=lambda b: b.t)
             _cache_put(key, [b.as_dict() for b in bars])
-            return bars
+            return _window(bars)
 
     stale = _cache_get_stale(key)
     if stale:
-        return [Candle(**row) for row in stale]
+        return _window([Candle(**row) for row in stale])
     raise DataError(f"no data for {symbol} ({'; '.join(errors) or 'unknown error'})")
 
 
