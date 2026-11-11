@@ -79,6 +79,17 @@ CACHE_TTL_SECONDS = 900  # 15 minutes for bar data
 ANALYSIS_TTL_SECONDS = 300  # 5 minutes for computed analysis
 
 # --------------------------------------------------------------------------
+# Intraday (1-hour) horizon
+# --------------------------------------------------------------------------
+
+INTRADAY_INTERVAL = "1h"
+INTRADAY_BARS = 4000  # ~167 days of hourly crypto; Yahoo gives ~2 years for stocks
+INTRADAY_CACHE_TTL = 1800  # 30 minutes
+# Hourly trading pays the spread far more often than daily does, so the intraday
+# cost model is deliberately harsher than the daily one.
+INTRADAY_COSTS_BPS = {"stock": 5.0, "crypto": 20.0}
+
+# --------------------------------------------------------------------------
 # Indicator parameters
 # --------------------------------------------------------------------------
 

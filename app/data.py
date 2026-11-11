@@ -255,6 +255,123 @@ def get_many(symbols: Iterable[str], max_workers: int = 8) -> tuple[dict[str, li
 
 
 # --------------------------------------------------------------------------
+# intraday bars (1-hour by default)
+# --------------------------------------------------------------------------
+
+
+def fetch_binance_intraday(symbol: str, bars: int) -> list[Candle]:
+    """Page backwards through Binance klines: one request carries 1,000 bars."""
+    pair = config.BINANCE_PAIRS.get(symbol)
+    if not pair:
+        raise DataError(f"no binance pair for {symbol}")
+
+    collected: list[list] = []
+    end_time: int | None = None
+    while len(collected) < bars:
+        params = {
+            "symbol": pair,
+            "interval": config.INTRADAY_INTERVAL,
+            "limit": str(min(1000, bars - len(collected))),
+        }
+        if end_time is not None:
+            params["endTime"] = str(end_time)
+        rows = _get_json("https://api.binance.com/api/v3/klines", params)
+        if not isinstance(rows, list) or not rows:
+            break
+        collected = rows + collected
+        end_time = int(rows[0][0]) - 1
+
+    out: list[Candle] = []
+    for row in collected:
+        try:
+            out.append(
+                Candle(
+                    t=int(row[0]) // 1000,
+                    o=float(row[1]),
+                    h=float(row[2]),
+                    l=float(row[3]),
+                    c=float(row[4]),
+                    v=float(row[5]),
+                )
+            )
+        except (IndexError, TypeError, ValueError):
+            continue
+    if not out:
+        raise DataError("binance returned no intraday data")
+    return out
+
+
+def fetch_yahoo_intraday(symbol: str) -> list[Candle]:
+    """Yahoo serves two years of 60-minute bars in one request."""
+    data = _get_json(
+        f"https://query1.finance.yahoo.com/v8/finance/chart/{urllib.parse.quote(symbol)}",
+        {"range": "730d", "interval": "60m", "includePrePost": "false"},
+    )
+    chart = data.get("chart") or {}
+    if chart.get("error"):
+        raise DataError(f"yahoo error: {chart['error']}")
+    results = chart.get("result") or []
+    if not results:
+        raise DataError("yahoo returned no intraday data")
+    result = results[0]
+    stamps = result.get("timestamp") or []
+    quote = ((result.get("indicators") or {}).get("quote") or [{}])[0]
+    opens, highs, lows, closes, volumes = (
+        quote.get("open") or [],
+        quote.get("high") or [],
+        quote.get("low") or [],
+        quote.get("close") or [],
+        quote.get("volume") or [],
+    )
+    bars: list[Candle] = []
+    for i, stamp in enumerate(stamps):
+        try:
+            o, h, l, c = opens[i], highs[i], lows[i], closes[i]
+        except IndexError:
+            continue
+        if None in (o, h, l, c) or c <= 0:
+            continue
+        v = volumes[i] if i < len(volumes) and volumes[i] is not None else 0.0
+        bars.append(Candle(int(stamp), float(o), float(h), float(l), float(c), float(v)))
+    if not bars:
+        raise DataError("yahoo returned an empty intraday series")
+    return bars
+
+
+def get_intraday(symbol: str, use_cache: bool = True) -> list[Candle]:
+    """Hourly bars for a symbol, newest last."""
+    kind = config.asset_class(symbol)
+    key = f"intraday:{kind}:{symbol}:{config.INTRADAY_INTERVAL}"
+
+    if use_cache:
+        cached = _cache_get(key, config.INTRADAY_CACHE_TTL)
+        if cached:
+            return [Candle(**row) for row in cached]
+
+    providers = (
+        [lambda: fetch_binance_intraday(symbol, config.INTRADAY_BARS), lambda: fetch_yahoo_intraday(symbol)]
+        if kind == "crypto"
+        else [lambda: fetch_yahoo_intraday(symbol)]
+    )
+    errors: list[str] = []
+    for provider in providers:
+        try:
+            bars = provider()
+        except DataError as exc:
+            errors.append(str(exc))
+            continue
+        if bars:
+            bars.sort(key=lambda b: b.t)
+            _cache_put(key, [b.as_dict() for b in bars])
+            return bars
+
+    stale = _cache_get_stale(key)
+    if stale:
+        return [Candle(**row) for row in stale]
+    raise DataError(f"no intraday data for {symbol} ({'; '.join(errors) or 'unknown error'})")
+
+
+# --------------------------------------------------------------------------
 # futures leverage data (crypto only) -- the direct evidence of forced closes
 # --------------------------------------------------------------------------
 
