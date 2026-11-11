@@ -160,20 +160,34 @@ def fetch_yahoo(symbol: str) -> list[Candle]:
 
 
 def fetch_binance(symbol: str) -> list[Candle]:
+    """Daily bars, paged backwards until HISTORY_BARS is reached."""
     pair = config.BINANCE_PAIRS.get(symbol)
     if not pair:
         raise DataError(f"no binance pair for {symbol}")
-    rows = _get_json(
-        "https://api.binance.com/api/v3/klines",
-        {"symbol": pair, "interval": "1d", "limit": str(config.BINANCE_LIMIT)},
-    )
-    # The kline endpoint returns a bare list, not an object.
-    if isinstance(rows, dict) and rows.get("code"):
-        raise DataError(f"binance error: {rows.get('msg')}")
-    if not isinstance(rows, list) or not rows:
+
+    rows_all: list[list] = []
+    end_time: int | None = None
+    while len(rows_all) < config.HISTORY_BARS:
+        params = {
+            "symbol": pair,
+            "interval": "1d",
+            "limit": str(min(config.BINANCE_LIMIT, config.HISTORY_BARS - len(rows_all))),
+        }
+        if end_time is not None:
+            params["endTime"] = str(end_time)
+        rows = _get_json("https://api.binance.com/api/v3/klines", params)
+        # The kline endpoint returns a bare list, not an object.
+        if isinstance(rows, dict) and rows.get("code"):
+            raise DataError(f"binance error: {rows.get('msg')}")
+        if not isinstance(rows, list) or not rows:
+            break
+        rows_all = rows + rows_all
+        end_time = int(rows[0][0]) - 1
+
+    if not rows_all:
         raise DataError("binance returned no data")
     bars: list[Candle] = []
-    for row in rows:
+    for row in rows_all:
         try:
             t = int(row[0]) // 1000
             o, h, l, c = (float(row[1]), float(row[2]), float(row[3]), float(row[4]))
