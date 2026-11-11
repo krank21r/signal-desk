@@ -213,6 +213,9 @@ def scan(kind: Optional[str] = None, refresh: bool = False) -> dict:
     return {
         "rows": rows,
         "errors": errors,
+        # The UI needs the policy to decide what it may suggest: with shorts off,
+        # a bearish lean is context, not a trade.
+        "settings": {"allow_shorts": config.ALLOW_SHORTS},
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "counts": {
             "long": sum(1 for r in rows if r["signal"] == "LONG"),

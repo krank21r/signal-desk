@@ -17,6 +17,7 @@ const state = {
   loggedSources: new Set(),
   stats: null,
   statsLoading: false,
+  allowShorts: true,
   loading: false,
 };
 
@@ -604,10 +605,14 @@ function switchView(name, pushHash = true) {
 
 function signalChip(row) {
   const cls = row.signal === "LONG" ? "long" : row.signal === "SHORT" ? "short" : "flat";
-  const lean =
-    row.signal === "FLAT" && row.bias && row.bias !== "neutral"
-      ? `<span class="lean">${row.bias === "lean_long" ? "◮" : "◭"} lean ${row.bias === "lean_long" ? "long" : "short"}</span>`
-      : "";
+  // A lean is only shown for a side the engine may actually trade. The API
+  // reports both "short" (strong) and "lean_short" (mild) bearishness.
+  const bearish = row.bias === "lean_short" || row.bias === "short";
+  const leansLong = row.bias === "lean_long";
+  const showLean = row.signal === "FLAT" && (leansLong || (bearish && state.allowShorts !== false));
+  const lean = showLean
+    ? `<span class="lean">${leansLong ? "◮" : "◭"} lean ${leansLong ? "long" : "short"}</span>`
+    : "";
   const warn = row.blocked
     ? `<span class="warn" title="${row.block_reason || "regime gate"}">▲</span>`
     : "";
@@ -985,6 +990,8 @@ function renderDrawer(detail) {
     ? s.exit_note
     : s.blocked
     ? `No position — ${s.block_reason}`
+    : (s.bias === "lean_short" || s.bias === "short") && state.allowShorts === false
+    ? `No position. The model reads bearish (score ${nf(s.score, 2)}) — shorts are disabled, so there is nothing to act on.`
     : `No position. Bias ${String(s.bias || "neutral").replace("_", " ")} at score ${nf(s.score, 2)}.`;
 
   const locked =
@@ -1115,6 +1122,7 @@ async function load(refresh = false) {
     const data = await getJSON(`/api/signals?asset_class=all${refresh ? "&refresh=true" : ""}`);
     state.rows = data.rows || [];
     state.errors = data.errors || {};
+    state.allowShorts = !data.settings || data.settings.allow_shorts !== false;
     renderCounts();
     renderTable();
 
