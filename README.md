@@ -73,25 +73,31 @@ checks stops against each bar's high/low.
 
 ## What the numbers are worth
 
-Across the default universe (20 symbols, ~3 years of daily bars), with the `partial` exit:
+Across the default universe (20 symbols, ten years of daily bars), with the `partial` exit:
 
 | Metric | Value |
 | --- | --- |
-| Expectancy | 0.12R per trade |
-| Profit factor | 1.32 |
-| Win rate / target-hit rate | 42% / 35% |
-| Total return, net of costs | +23.5% |
-| Max drawdown | −35.8% |
-| t-stat | 0.34 |
+| Trades | 1,766 |
+| Win rate | 42.1% |
+| Expectancy | +0.16R per trade |
+| Profit factor | 1.42 |
+| t-stat, date-clustered | **4.09** |
+| Crypto / stocks | +0.21R (t 3.04) / +0.12R (t 2.98) |
+| Long / short | **+0.25R (t 5.22)** / −0.03R (t −1.03) |
 
-That t-stat is the honest headline: **the edge is not statistically distinguishable from zero**
-on this sample. The same engine scores 0.07R with a fixed target and 0.11R with a pure trail, so
-the exit rule matters more than the entry — which is the sort of thing the ledger is there to tell
-you. The rules beat buy-and-hold on about 6 of 20 symbols; this is a long/short rule set, not a
-bull-market replacement.
+The window matters more than anything else in this file. On three years the same rules scored
++0.12R with a t of 0.34 and the stock half looked worthless (+0.005R); over ten years the stock
+half is +0.121R with a t of 2.98. The short sample was the misleading one, and that cut both ways.
 
-Treat the backtest as a filter for broken logic, not as a forecast. Everything is in-sample
-over the window shown; there is no parameter search, which removes one way to fool yourself
+Two things the breakdown says plainly:
+
+- **The short side does not work** (−0.03R over 556 trades, t −1.03). Every bit of the edge is on
+  the long side, which matches the known asymmetry between momentum and shorting.
+- Both asset classes clear the bar once given enough history, so "crypto only" was a
+  three-year artefact rather than a structural finding.
+
+Treat the backtest as a filter for broken logic, not as a forecast. It is still in-sample over
+one dataset; there is no parameter search, which removes one way to fool yourself
 but does not create an edge.
 
 ## Layout
